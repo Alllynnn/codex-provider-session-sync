@@ -1,136 +1,142 @@
-# Codex 会话同步工具
+# Codex Provider Session Sync
 
 English README: [README.md](README.md)
 
-这是一个本地工具，用来同步 Codex 在不同模型供应商 provider 下的历史会话可见性。它支持一次性命令行同步、本地 Web UI、后台常驻同步、Windows 开机自启动和托盘控制程序。
+Codex Provider Session Sync 是一个面向 Codex Desktop 的本地后台工具，用来把多个 `model_provider` 下的会话自动统一聚合。它会定期扫描 `.codex` 会话文件，把每个真实会话镜像到其它 provider，让你在 `openai`、`openrouter`、`custom` 等 provider 之间切换时，仍然能看到同一批会话历史。
 
-工具默认只做预览，不会写入数据。只有在 Web UI 中勾选确认并点击“执行写入”，或在命令行中显式追加 `--apply`，才会修改 Codex 会话文件。
+## 它解决什么问题
 
-## UI 截图
+Codex Desktop 的会话 JSONL 里会记录 `model_provider`。切换 provider 后，如果某些历史会话只属于原 provider，新 provider 视角下可能不可见。这个工具的做法是：
 
-![Codex 会话同步工具 Web UI](assets/ui-screenshot.png)
+- 读取本机 `.codex/sessions` 和 `.codex/archived_sessions`。
+- 识别每条真实会话的 `session_meta.id` 和 `model_provider`。
+- 为其它 provider 创建确定性的镜像会话 ID。
+- 写入镜像 JSONL，并更新 `.codex/session_index.jsonl`。
+- 后台定期刷新镜像内容，所以源会话继续追加消息后，镜像也会跟着更新。
+
+镜像会话会带 `forked_from_id`，工具不会把自己生成的镜像再次作为源会话扩散。
+
+## 当前特性
+
+- 多 provider 互相聚合：默认覆盖 `openai`、`openrouter`、`custom`。
+- 后台 daemon：按固定间隔自动同步。
+- 托盘图标：后台运行时可在任务栏托盘看到状态，并可右键退出。
+- GUI 控制面板：一个开关控制后台同步启停。
+- 开机自启动：Windows 登录后自动运行。
+- 预览模式：核心同步 CLI 默认不写入，只有 `--apply` 才会修改文件。
+- 构建产物隔离：`dist/`、`build/`、日志、备份目录默认不进入 Git。
 
 ## 项目结构
 
-- `src/m.py`：原始同步 CLI，支持预览、写入、备份和旧 SQLite 索引处理。
-- `src/m_webui.py`：本地 Web UI 入口。
-- `src/provider_sync_v2.py`：新版 provider 会话文件同步核心逻辑。
-- `src/provider_sync_daemon.py`：后台同步 daemon，包含托盘图标。
-- `src/provider_sync_control.py`：Windows GUI 控制面板，提供开关控制。
-- `assets/`：截图和应用图标。
-- `packaging/pyinstaller/`：PyInstaller 打包配置。
-- `scripts/windows/`：Windows 自启动安装和卸载脚本。
-- `tools/`：恢复和维护脚本。
-- `requirements.txt`：打包依赖。
-- `.gitignore`：忽略本地构建产物、日志、虚拟环境和备份目录。
+```text
+.
+├── assets/
+│   └── provider-sync.ico
+├── packaging/
+│   └── pyinstaller/
+│       ├── ProviderSyncControl.spec
+│       └── ProviderSyncDaemon.spec
+├── scripts/
+│   └── windows/
+│       ├── install_provider_sync_autostart.ps1
+│       └── uninstall_provider_sync_autostart.ps1
+├── src/
+│   ├── provider_sync_control.py
+│   ├── provider_sync_daemon.py
+│   └── provider_sync_v2.py
+├── .gitignore
+├── README.md
+├── README.zh-CN.md
+└── requirements.txt
+```
 
-`build/`、`dist/`、`.build-venv/`、日志文件和 `__pycache__/` 属于本机构建或运行产物，默认不进入 Git。
+## 快速开始
 
-## 推荐用法：后台同步
-
-安装或更新依赖：
+安装依赖：
 
 ```powershell
 python -m pip install -r .\requirements.txt
 ```
 
-安装开机自启动并立即启动后台同步：
+先做一次预览：
+
+```powershell
+python .\src\provider_sync_v2.py --mode mirror-all --provider openai --provider openrouter --provider custom
+```
+
+执行一次真实同步：
+
+```powershell
+python .\src\provider_sync_v2.py --mode mirror-all --provider openai --provider openrouter --provider custom --apply
+```
+
+启动后台同步：
+
+```powershell
+python .\src\provider_sync_daemon.py --provider openai --provider openrouter --provider custom
+```
+
+## Windows 开机自启动
+
+安装并立即启动：
 
 ```powershell
 .\scripts\windows\install_provider_sync_autostart.ps1
 ```
 
-卸载自启动：
+卸载并停止后台同步：
 
 ```powershell
 .\scripts\windows\uninstall_provider_sync_autostart.ps1
 ```
 
-默认同步 provider 为 `openai`、`openrouter` 和 `custom`。如需调整，修改 `scripts/windows/install_provider_sync_autostart.ps1` 中的 `--provider` 参数。
+默认备份目录：
+
+```text
+C:\Users\<用户名>\Desktop\codex-provider-session-sync-backup
+```
+
+默认日志：
+
+```text
+C:\Users\<用户名>\.codex\log\provider-sync-daemon.log
+```
 
 ## GUI 控制面板
 
-源码方式运行：
+源码运行：
 
 ```powershell
 python .\src\provider_sync_control.py
 ```
 
-如果已经打包，可运行：
+打包后运行：
 
 ```powershell
 .\dist\ProviderSyncControl.exe
 ```
 
-控制面板用于查看后台同步状态，并执行启动 / 停止操作。
+控制面板会显示后台同步状态，并提供一个开关控制自动同步。
 
-## Web UI
+## 打包
 
-在项目根目录运行：
-
-```powershell
-python .\src\m_webui.py
-```
-
-程序会启动本地服务，并自动打开浏览器页面。服务只监听本机 `127.0.0.1`。
-
-建议流程：
-
-1. 确认 `Codex Home` 路径是否正确，默认通常是 `C:\Users\<用户名>\.codex`。
-2. 选择“全供应商互同步”。
-3. 先点击“预览”，查看需要创建的镜像文件和冲突数。
-4. 如果要正式写入，填写备份目录。
-5. 勾选“我已备份或确认可以写入”。
-6. 点击“执行写入”。
-
-## 命令行同步
-
-全供应商互同步预览：
-
-```powershell
-python .\src\m.py --sync-all-providers-mutually
-```
-
-全供应商互同步写入：
-
-```powershell
-python .\src\m.py --sync-all-providers-mutually --backup-dir .\backup --apply
-```
-
-从指定源 provider 同步到其它 provider：
-
-```powershell
-python .\src\m.py --sync-openai-to-all-providers --source-provider openai
-```
-
-单目标迁移：
-
-```powershell
-python .\src\m.py --target-provider openai --backup-dir .\backup --apply
-```
-
-## 重新打包 EXE
-
-在项目根目录运行：
+在项目根目录执行：
 
 ```powershell
 python -m PyInstaller --clean --noconfirm .\packaging\pyinstaller\ProviderSyncDaemon.spec
 python -m PyInstaller --clean --noconfirm .\packaging\pyinstaller\ProviderSyncControl.spec
 ```
 
-生成结果：
+输出：
 
 ```text
 dist/ProviderSyncDaemon.exe
 dist/ProviderSyncControl.exe
 ```
 
-如果提示 exe 被占用，先停止正在运行的后台同步程序或控制面板，再重新打包。
+## 安全说明
 
-## 安全注意事项
-
-- 第一次使用一定先预览。
-- 正式写入前建议填写备份目录。
-- `--apply` 会修改 Codex 会话文件。
-- 工具不会覆盖冲突文件，只会跳过并报告。
-- 不建议把 `dist/`、`build/`、日志和备份目录提交到 Git。
+- 第一次使用建议先运行预览命令，不加 `--apply`。
+- 工具只创建或刷新自己的镜像文件，不覆盖无法识别的冲突文件。
+- 镜像文件会改写 `session_meta.id`、`model_provider` 和 `forked_from_id`，因此不能用软链接代替。
+- 如果 Codex Desktop 后续更改会话文件格式，需要重新验证 `session_meta` 和 `session_index.jsonl` 的处理逻辑。

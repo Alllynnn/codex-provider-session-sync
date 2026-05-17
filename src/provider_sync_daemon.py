@@ -35,7 +35,7 @@ def default_log_path() -> Path:
 
 
 def default_backup_dir() -> Path:
-    return Path.home() / 'Desktop' / 'codex-session-sync-backup-v2'
+    return Path.home() / 'Desktop' / 'codex-provider-session-sync-backup'
 
 
 def app_root() -> Path:

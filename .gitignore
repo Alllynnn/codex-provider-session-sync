@@ -16,6 +16,7 @@ __pycache__/
 *.log
 *.tmp
 
+codex-provider-session-sync-backup*/
 codex-session-sync-backup*/
 codex-shadow-recovery*/
 backup/

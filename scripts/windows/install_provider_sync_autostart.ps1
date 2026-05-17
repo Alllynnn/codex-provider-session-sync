@@ -10,7 +10,7 @@ $RepoRoot = Resolve-Path (Join-Path $ScriptDir "../..")
 $DaemonScript = Join-Path $RepoRoot "src/provider_sync_daemon.py"
 $DaemonExe = Join-Path $RepoRoot "dist/ProviderSyncDaemon.exe"
 $CodexHome = Join-Path $env:USERPROFILE ".codex"
-$BackupDir = Join-Path $env:USERPROFILE "Desktop/codex-session-sync-backup-v2"
+$BackupDir = Join-Path $env:USERPROFILE "Desktop/codex-provider-session-sync-backup"
 $LogFile = Join-Path $CodexHome "log/provider-sync-daemon.log"
 
 if ((-not (Test-Path -LiteralPath $DaemonExe)) -and (-not (Test-Path -LiteralPath $DaemonScript))) {

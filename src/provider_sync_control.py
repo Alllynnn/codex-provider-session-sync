@@ -59,7 +59,7 @@ def daemon_invocation() -> tuple[list[str], str]:
         '--codex-home',
         str(codex_home),
         '--backup-dir',
-        str(Path.home() / 'Desktop' / 'codex-session-sync-backup-v2'),
+        str(Path.home() / 'Desktop' / 'codex-provider-session-sync-backup'),
         '--log-file',
         str(codex_home / 'log' / 'provider-sync-daemon.log'),
         '--interval-seconds',

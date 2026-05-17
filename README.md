@@ -1,32 +1,57 @@
-# Codex Session Sync
+# Codex Provider Session Sync
 
 中文说明: [README.zh-CN.md](README.zh-CN.md)
 
-Local utility for synchronizing Codex conversation visibility across model providers. It supports one-shot CLI sync, a local Web UI, a background daemon, Windows autostart, and a small control GUI.
+Codex Provider Session Sync is a local background utility for Codex Desktop. It automatically aggregates conversation history across multiple `model_provider` values so the same sessions remain visible when switching between providers such as `openai`, `openrouter`, and `custom`.
 
-By default, write-capable tools run in preview mode. Real writes require explicit confirmation in the Web UI or `--apply` on the command line.
+## What It Does
 
-## UI Preview
+Codex Desktop stores the provider name inside session JSONL metadata. After switching providers, sessions that belong only to another provider may disappear from the current provider view. This project keeps those views aligned by:
 
-![Codex Session Sync Web UI](assets/ui-screenshot.png)
+- scanning `.codex/sessions` and `.codex/archived_sessions`;
+- reading each source session's `session_meta.id` and `model_provider`;
+- creating deterministic mirror session IDs for the other providers;
+- writing provider-specific mirror JSONL files;
+- updating `.codex/session_index.jsonl`;
+- periodically refreshing stale mirrors when source sessions receive new messages.
+
+Generated mirrors include `forked_from_id`, so the sync engine does not re-use its own mirrors as new source sessions.
+
+## Features
+
+- Mutual aggregation across multiple providers.
+- Background daemon with configurable sync interval.
+- Windows tray icon with an exit menu item.
+- Small GUI control panel for enabling or disabling background sync.
+- Windows autostart install and uninstall scripts.
+- CLI preview mode by default; writes require `--apply`.
+- Local artifacts such as `dist/`, `build/`, logs, and backups are ignored by Git.
 
 ## Project Structure
 
-- `src/m.py`: original sync CLI with preview, apply, backup, and legacy SQLite handling.
-- `src/m_webui.py`: local Web UI entrypoint.
-- `src/provider_sync_v2.py`: newer provider session-file sync engine.
-- `src/provider_sync_daemon.py`: background sync daemon with tray icon support.
-- `src/provider_sync_control.py`: Windows GUI control panel.
-- `assets/`: screenshots and application icons.
-- `packaging/pyinstaller/`: PyInstaller specs.
-- `scripts/windows/`: Windows autostart install and uninstall scripts.
-- `tools/`: recovery and maintenance scripts.
-- `requirements.txt`: packaging dependency list.
-- `.gitignore`: ignores local builds, logs, virtual environments, and backups.
+```text
+.
+├── assets/
+│   └── provider-sync.ico
+├── packaging/
+│   └── pyinstaller/
+│       ├── ProviderSyncControl.spec
+│       └── ProviderSyncDaemon.spec
+├── scripts/
+│   └── windows/
+│       ├── install_provider_sync_autostart.ps1
+│       └── uninstall_provider_sync_autostart.ps1
+├── src/
+│   ├── provider_sync_control.py
+│   ├── provider_sync_daemon.py
+│   └── provider_sync_v2.py
+├── .gitignore
+├── README.md
+├── README.zh-CN.md
+└── requirements.txt
+```
 
-`build/`, `dist/`, `.build-venv/`, logs, and `__pycache__/` are local generated artifacts and are not intended to be committed.
-
-## Background Sync
+## Quick Start
 
 Install dependencies:
 
@@ -34,19 +59,49 @@ Install dependencies:
 python -m pip install -r .\requirements.txt
 ```
 
+Preview a sync:
+
+```powershell
+python .\src\provider_sync_v2.py --mode mirror-all --provider openai --provider openrouter --provider custom
+```
+
+Apply one sync cycle:
+
+```powershell
+python .\src\provider_sync_v2.py --mode mirror-all --provider openai --provider openrouter --provider custom --apply
+```
+
+Start the background daemon:
+
+```powershell
+python .\src\provider_sync_daemon.py --provider openai --provider openrouter --provider custom
+```
+
+## Windows Autostart
+
 Install autostart and start the daemon:
 
 ```powershell
 .\scripts\windows\install_provider_sync_autostart.ps1
 ```
 
-Uninstall autostart:
+Uninstall autostart and stop the daemon:
 
 ```powershell
 .\scripts\windows\uninstall_provider_sync_autostart.ps1
 ```
 
-The default providers are `openai`, `openrouter`, and `custom`. Edit the `--provider` arguments in `scripts/windows/install_provider_sync_autostart.ps1` if your local provider names differ.
+Default backup directory:
+
+```text
+C:\Users\<user>\Desktop\codex-provider-session-sync-backup
+```
+
+Default log file:
+
+```text
+C:\Users\<user>\.codex\log\provider-sync-daemon.log
+```
 
 ## Control GUI
 
@@ -62,38 +117,9 @@ Run a packaged build:
 .\dist\ProviderSyncControl.exe
 ```
 
-## Web UI
+The control panel shows daemon status and provides a single switch for background sync.
 
-Run:
-
-```powershell
-python .\src\m_webui.py
-```
-
-The Web UI opens a local browser page on `127.0.0.1`.
-
-## CLI
-
-Preview mutual provider synchronization:
-
-```powershell
-python .\src\m.py --sync-all-providers-mutually
-```
-
-Apply mutual provider synchronization:
-
-```powershell
-python .\src\m.py --sync-all-providers-mutually --backup-dir .\backup --apply
-```
-
-Other supported modes:
-
-```powershell
-python .\src\m.py --sync-openai-to-all-providers --source-provider openai
-python .\src\m.py --target-provider openai --backup-dir .\backup --apply
-```
-
-## Rebuild EXEs
+## Packaging
 
 From the project root:
 
@@ -109,11 +135,9 @@ dist/ProviderSyncDaemon.exe
 dist/ProviderSyncControl.exe
 ```
 
-If Windows reports that an executable is in use, stop the daemon or control panel before rebuilding.
-
 ## Safety Notes
 
-- Preview first.
-- Back up before `--apply`.
-- Existing conflicting files are skipped and reported, not overwritten.
-- Do not commit `dist/`, `build/`, logs, or local backup directories.
+- Preview first by omitting `--apply`.
+- The tool creates or refreshes its own mirror files and skips unrecognized conflicts.
+- Mirror files rewrite `session_meta.id`, `model_provider`, and `forked_from_id`, so symlinks cannot replace mirror files.
+- If Codex Desktop changes its session file format, re-check the `session_meta` and `session_index.jsonl` handling before applying writes.
