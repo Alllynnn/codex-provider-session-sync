@@ -20,8 +20,8 @@ Codex Desktop 的会话 JSONL 里会记录 `model_provider`。切换 provider �
 
 - 多 provider 互相聚合：默认覆盖 `openai`、`openrouter`、`custom`。
 - 后台 daemon：按固定间隔自动同步。
-- 托盘图标：后台运行时可在任务栏托盘看到状态，并可右键退出。
-- GUI 控制面板：一个开关控制后台同步启停。
+- 托盘图标：双击打开控制面板，右键菜单支持打开面板、开启/关闭同步、设置同步间隔和退出。
+- GUI 控制面板：白底卡片式界面，展示同步状态、provider 范围、同步间隔、日志路径和常用操作。
 - 开机自启动：Windows 登录后自动运行。
 - 预览模式：核心同步 CLI 默认不写入，只有 `--apply` 才会修改文件。
 - 构建产物隔离：`dist/`、`build/`、日志、备份目录默认不进入 Git。
@@ -43,6 +43,7 @@ Codex Desktop 的会话 JSONL 里会记录 `model_provider`。切换 provider �
 ├── src/
 │   ├── provider_sync_control.py
 │   ├── provider_sync_daemon.py
+│   ├── provider_sync_settings.py
 │   └── provider_sync_v2.py
 ├── .gitignore
 ├── README.md
@@ -75,6 +76,12 @@ python .\src\provider_sync_v2.py --mode mirror-all --provider openai --provider 
 ```powershell
 python .\src\provider_sync_daemon.py --provider openai --provider openrouter --provider custom
 ```
+
+启动后会出现任务栏托盘图标：
+
+- 双击图标：打开控制面板。
+- 右键图标：打开面板、开启/关闭同步、设置同步间隔、退出。
+- “关闭同步”只会暂停自动同步；“退出”会结束后台进程。
 
 ## Windows 开机自启动
 
@@ -117,6 +124,14 @@ python .\src\provider_sync_control.py
 ```
 
 控制面板会显示后台同步状态，并提供一个开关控制自动同步。
+
+设置会保存在：
+
+```text
+C:\Users\<用户名>\.codex\provider-session-sync.json
+```
+
+其中包括是否启用同步、同步间隔和 provider 列表。daemon 会在每轮同步前读取配置，因此修改间隔后不需要重启后台进程。
 
 ## 打包
 

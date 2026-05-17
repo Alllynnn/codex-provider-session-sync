@@ -21,8 +21,8 @@ Generated mirrors include `forked_from_id`, so the sync engine does not re-use i
 
 - Mutual aggregation across multiple providers.
 - Background daemon with configurable sync interval.
-- Windows tray icon with an exit menu item.
-- Small GUI control panel for enabling or disabling background sync.
+- Windows tray icon: double-click opens the control panel; right-click shows open, enable/disable sync, set interval, and exit actions.
+- Card-style GUI control panel showing sync state, providers, interval, log path, and common actions.
 - Windows autostart install and uninstall scripts.
 - CLI preview mode by default; writes require `--apply`.
 - Local artifacts such as `dist/`, `build/`, logs, and backups are ignored by Git.
@@ -44,6 +44,7 @@ Generated mirrors include `forked_from_id`, so the sync engine does not re-use i
 ├── src/
 │   ├── provider_sync_control.py
 │   ├── provider_sync_daemon.py
+│   ├── provider_sync_settings.py
 │   └── provider_sync_v2.py
 ├── .gitignore
 ├── README.md
@@ -76,6 +77,12 @@ Start the background daemon:
 ```powershell
 python .\src\provider_sync_daemon.py --provider openai --provider openrouter --provider custom
 ```
+
+When the daemon is running:
+
+- Double-click the tray icon to open the control panel.
+- Right-click the tray icon to open the panel, enable/disable sync, set the sync interval, or exit.
+- Disable sync pauses automatic aggregation; exit stops the background process.
 
 ## Windows Autostart
 
@@ -118,6 +125,14 @@ Run a packaged build:
 ```
 
 The control panel shows daemon status and provides a single switch for background sync.
+
+Settings are stored in:
+
+```text
+C:\Users\<user>\.codex\provider-session-sync.json
+```
+
+The file stores enabled state, sync interval, and provider names. The daemon reads it before every cycle, so interval changes do not require a daemon restart.
 
 ## Packaging
 
