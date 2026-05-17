@@ -331,8 +331,17 @@ def iter_state_db_candidates(sqlite_home: Path) -> list[tuple[int, float, Path]]
         match = version_pattern.match(path.name)
         if not match:
             continue
+        if not is_sqlite_database(path):
+            continue
         candidates.append((int(match.group(1)), path.stat().st_mtime, path))
     return candidates
+
+
+def is_sqlite_database(path: Path) -> bool:
+    try:
+        return path.read_bytes()[:16] == b'SQLite format 3\x00'
+    except OSError:
+        return False
 
 
 def resolve_state_db(codex_home: Path, config_status: ConfigStatus, explicit_path: Path | None) -> Path | None:
