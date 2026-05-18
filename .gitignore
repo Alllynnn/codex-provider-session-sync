@@ -1,9 +1,13 @@
 .build-venv/
 .venv/
 venv/
+node_modules/
 
 build/
 dist/
+dist-ui/
+src-tauri/target/
+src-tauri/gen/
 
 __pycache__/
 *.py[cod]

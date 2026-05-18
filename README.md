@@ -2,30 +2,29 @@
 
 中文说明: [README.zh-CN.md](README.zh-CN.md)
 
-Codex Provider Session Sync is a local background utility for Codex Desktop. It automatically aggregates conversation history across multiple `model_provider` values so the same sessions remain visible when switching between providers such as `openai`, `openrouter`, and `custom`.
+Codex Provider Session Sync is a Tauri desktop app that automatically aggregates Codex Desktop sessions across multiple `model_provider` values. It keeps the same conversation history visible when switching between providers such as `openai`, `openrouter`, and `custom`.
 
-## What It Does
+## Tech Stack
 
-Codex Desktop stores the provider name inside session JSONL metadata. After switching providers, sessions that belong only to another provider may disappear from the current provider view. This project keeps those views aligned by:
+- Desktop shell: Tauri v2
+- Frontend: React + TypeScript + Vite
+- Styling: Tailwind CSS
+- Icons: lucide-react
+- Backend: Rust
 
-- scanning `.codex/sessions` and `.codex/archived_sessions`;
-- reading each source session's `session_meta.id` and `model_provider`;
-- creating deterministic mirror session IDs for the other providers;
-- writing provider-specific mirror JSONL files;
-- updating `.codex/session_index.jsonl`;
-- periodically refreshing stale mirrors when source sessions receive new messages.
-
-Generated mirrors include `forked_from_id`, so the sync engine does not re-use its own mirrors as new source sessions.
+The old Python / PyInstaller implementation has been removed. The sync engine now lives in `src-tauri`.
 
 ## Features
 
-- Mutual aggregation across multiple providers.
-- Background daemon with configurable sync interval.
-- Windows tray icon: double-click opens the control panel; right-click shows open, enable/disable sync, set interval, and exit actions.
-- Card-style GUI control panel showing sync state, providers, interval, log path, and common actions.
-- Windows autostart install and uninstall scripts.
-- CLI preview mode by default; writes require `--apply`.
-- Local artifacts such as `dist/`, `build/`, logs, and backups are ignored by Git.
+- Scans `.codex/sessions` and `.codex/archived_sessions`.
+- Groups sessions by `session_meta.id`, `forked_from_id`, and `model_provider`.
+- Creates deterministic mirror session IDs for other providers.
+- Creates or refreshes provider-specific JSONL mirrors.
+- Updates `.codex/session_index.jsonl`.
+- Runs an automatic background sync loop.
+- Tray icon: double-click opens the main window; right-click shows open, enable/disable sync, set interval, and exit actions.
+- Main window: CC Switch-style white card UI adapted for sync status, providers, interval, autostart, and log actions.
+- Windows autostart: the top-right settings button writes or removes the HKCU Run entry.
 
 ## Project Structure
 
@@ -33,69 +32,80 @@ Generated mirrors include `forked_from_id`, so the sync engine does not re-use i
 .
 ├── assets/
 │   └── provider-sync.ico
-├── packaging/
-│   └── pyinstaller/
-│       ├── ProviderSyncControl.spec
-│       └── ProviderSyncDaemon.spec
-├── scripts/
-│   └── windows/
-│       ├── install_provider_sync_autostart.ps1
-│       └── uninstall_provider_sync_autostart.ps1
-├── src/
-│   ├── provider_sync_control.py
-│   ├── provider_sync_daemon.py
-│   ├── provider_sync_settings.py
-│   └── provider_sync_v2.py
-├── .gitignore
-├── README.md
-├── README.zh-CN.md
-└── requirements.txt
+├── src-ui/
+│   ├── main.tsx
+│   └── styles.css
+├── src-tauri/
+│   ├── src/
+│   │   ├── lib.rs
+│   │   ├── main.rs
+│   │   ├── settings.rs
+│   │   └── sync.rs
+│   ├── icons/
+│   │   └── icon.ico
+│   ├── Cargo.toml
+│   ├── build.rs
+│   └── tauri.conf.json
+├── package.json
+├── vite.config.ts
+├── tailwind.config.js
+└── tsconfig.json
 ```
 
-## Quick Start
+## Development
 
-Install dependencies:
+Install frontend dependencies:
 
 ```powershell
-python -m pip install -r .\requirements.txt
+pnpm install
 ```
 
-Preview a sync:
+Run the frontend dev server:
 
 ```powershell
-python .\src\provider_sync_v2.py --mode mirror-all --provider openai --provider openrouter --provider custom
+pnpm dev
 ```
 
-Apply one sync cycle:
+Run Tauri dev mode:
 
 ```powershell
-python .\src\provider_sync_v2.py --mode mirror-all --provider openai --provider openrouter --provider custom --apply
+pnpm tauri:dev
 ```
 
-Start the background daemon:
+Build the frontend:
 
 ```powershell
-python .\src\provider_sync_daemon.py --provider openai --provider openrouter --provider custom
+pnpm build
 ```
 
-When the daemon is running:
-
-- Double-click the tray icon to open the control panel.
-- Right-click the tray icon to open the panel, enable/disable sync, set the sync interval, or exit.
-- Disable sync pauses automatic aggregation; exit stops the background process.
-
-## Windows Autostart
-
-Install autostart and start the daemon:
+Build the desktop app:
 
 ```powershell
-.\scripts\windows\install_provider_sync_autostart.ps1
+pnpm tauri:build
 ```
 
-Uninstall autostart and stop the daemon:
+## Requirements
 
-```powershell
-.\scripts\windows\uninstall_provider_sync_autostart.ps1
+- Node.js
+- pnpm
+- Rust toolchain with `cargo` and `rustc`
+
+If Rust is not installed, `pnpm tauri:dev` and `pnpm tauri:build` cannot run.
+
+## Settings
+
+Settings are saved to:
+
+```text
+C:\Users\<user>\.codex\provider-session-sync.json
+```
+
+The file stores enabled state, sync interval, and provider names.
+
+Default log file:
+
+```text
+C:\Users\<user>\.codex\log\provider-sync-daemon.log
 ```
 
 Default backup directory:
@@ -104,55 +114,8 @@ Default backup directory:
 C:\Users\<user>\Desktop\codex-provider-session-sync-backup
 ```
 
-Default log file:
-
-```text
-C:\Users\<user>\.codex\log\provider-sync-daemon.log
-```
-
-## Control GUI
-
-Run from source:
-
-```powershell
-python .\src\provider_sync_control.py
-```
-
-Run a packaged build:
-
-```powershell
-.\dist\ProviderSyncControl.exe
-```
-
-The control panel shows daemon status and provides a single switch for background sync.
-
-Settings are stored in:
-
-```text
-C:\Users\<user>\.codex\provider-session-sync.json
-```
-
-The file stores enabled state, sync interval, and provider names. The daemon reads it before every cycle, so interval changes do not require a daemon restart.
-
-## Packaging
-
-From the project root:
-
-```powershell
-python -m PyInstaller --clean --noconfirm .\packaging\pyinstaller\ProviderSyncDaemon.spec
-python -m PyInstaller --clean --noconfirm .\packaging\pyinstaller\ProviderSyncControl.spec
-```
-
-Outputs:
-
-```text
-dist/ProviderSyncDaemon.exe
-dist/ProviderSyncControl.exe
-```
-
 ## Safety Notes
 
-- Preview first by omitting `--apply`.
-- The tool creates or refreshes its own mirror files and skips unrecognized conflicts.
 - Mirror files rewrite `session_meta.id`, `model_provider`, and `forked_from_id`, so symlinks cannot replace mirror files.
-- If Codex Desktop changes its session file format, re-check the `session_meta` and `session_index.jsonl` handling before applying writes.
+- The tool only refreshes mirrors it can identify and skips conflicts.
+- If Codex Desktop changes its JSONL or `session_index.jsonl` format, re-check the sync logic before applying writes.

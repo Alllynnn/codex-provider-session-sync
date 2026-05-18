@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Codex Provider Session Sync",
+  "version": "0.2.0",
+  "identifier": "com.alllynnn.codex-provider-session-sync",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist-ui"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Codex Provider Session Sync",
+        "width": 900,
+        "height": 640,
+        "minWidth": 760,
+        "minHeight": 560,
+        "center": true,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.ico"]
+  }
+}

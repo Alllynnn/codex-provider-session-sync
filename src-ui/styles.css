@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  font-family: Inter, "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+  background: #fbfbfc;
+}
+
+body {
+  margin: 0;
+  min-width: 760px;
+  min-height: 560px;
+}
+
+button {
+  font: inherit;
+}
+
+.icon-button {
+  display: flex;
+  height: 36px;
+  width: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+}
+
+.icon-button:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
