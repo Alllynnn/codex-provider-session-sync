@@ -1,6 +1,8 @@
+mod backup;
 mod settings;
 mod sync;
 
+use backup::{create_snapshot, list_snapshots, restore_snapshot, BackupSnapshot};
 use settings::{default_backup_dir, load_settings, save_settings, update_enabled, update_interval, SyncSettings};
 use std::{
     fs::{self, OpenOptions},
@@ -42,9 +44,18 @@ fn run_sync_cycle(state: &AppState) -> Result<SyncReport, String> {
     let settings = load_settings();
     let backup_dir = default_backup_dir();
     fs::create_dir_all(&backup_dir).map_err(|err| err.to_string())?;
+    let snapshot = create_snapshot(&settings.codex_home, &backup_dir, "before-sync").map_err(|err| err.to_string())?;
     match sync_all(&settings.codex_home, &backup_dir, &settings.providers, true) {
-        Ok(report) => {
-            append_log(&settings, &format!("sync ok: refreshed={} created={} conflicts={}", report.mirror_refreshed, report.mirror_created, report.mirror_conflicts));
+        Ok(mut report) => {
+            report.backup_snapshot_id = Some(snapshot.id.clone());
+            report.backup_snapshot_path = Some(snapshot.path.clone());
+            append_log(
+                &settings,
+                &format!(
+                    "sync ok: refreshed={} created={} conflicts={} backup={}",
+                    report.mirror_refreshed, report.mirror_created, report.mirror_conflicts, snapshot.id
+                ),
+            );
             *state.last_report.lock().map_err(|err| err.to_string())? = Some(report.clone());
             Ok(report)
         }
@@ -167,6 +178,11 @@ fn get_last_report(state: State<'_, AppState>) -> Option<SyncReport> {
 }
 
 #[tauri::command]
+fn get_backup_snapshots() -> Result<Vec<BackupSnapshot>, String> {
+    list_snapshots(&default_backup_dir()).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
 fn set_enabled(enabled: bool) -> Result<SyncSettings, String> {
     update_enabled(enabled).map_err(|err| err.to_string())
 }
@@ -184,6 +200,27 @@ fn set_autostart(enabled: bool) -> Result<bool, String> {
 #[tauri::command]
 fn sync_now(state: State<'_, AppState>) -> Result<SyncReport, String> {
     run_sync_cycle(&state)
+}
+
+#[tauri::command]
+fn create_backup_now() -> Result<BackupSnapshot, String> {
+    let settings = load_settings();
+    let snapshot = create_snapshot(&settings.codex_home, &default_backup_dir(), "manual").map_err(|err| err.to_string())?;
+    append_log(&settings, &format!("backup created: {}", snapshot.id));
+    Ok(snapshot)
+}
+
+#[tauri::command]
+fn restore_backup(snapshot_id: String) -> Result<(), String> {
+    let snapshots = list_snapshots(&default_backup_dir()).map_err(|err| err.to_string())?;
+    let snapshot = snapshots
+        .into_iter()
+        .find(|snapshot| snapshot.id == snapshot_id)
+        .ok_or_else(|| format!("Backup snapshot not found: {snapshot_id}"))?;
+    restore_snapshot(&snapshot).map_err(|err| err.to_string())?;
+    let settings = load_settings();
+    append_log(&settings, &format!("backup restored: {}", snapshot.id));
+    Ok(())
 }
 
 #[tauri::command]
@@ -210,10 +247,13 @@ pub fn run() {
             get_settings,
             get_autostart_enabled,
             get_last_report,
+            get_backup_snapshots,
             set_enabled,
             set_interval,
             set_autostart,
             sync_now,
+            create_backup_now,
+            restore_backup,
             open_log,
             exit_app
         ])

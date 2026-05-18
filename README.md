@@ -25,6 +25,7 @@ The old Python / PyInstaller implementation has been removed. The sync engine no
 - Tray icon: double-click opens the main window; right-click shows open, enable/disable sync, set interval, and exit actions.
 - Main window: CC Switch-style white card UI adapted for sync status, providers, interval, autostart, and log actions.
 - Windows autostart: the top-right settings button writes or removes the HKCU Run entry.
+- Backup and restore: every sync creates a pre-sync snapshot; the main window can create manual backups and restore a selected snapshot.
 
 ## Project Structure
 
@@ -114,8 +115,24 @@ Default backup directory:
 C:\Users\<user>\Desktop\codex-provider-session-sync-backup
 ```
 
+Backup snapshots are stored under:
+
+```text
+C:\Users\<user>\Desktop\codex-provider-session-sync-backup\snapshots\<timestamp>
+```
+
+Each snapshot includes:
+
+- `sessions`
+- `archived_sessions`
+- `session_index.jsonl`
+- `provider-session-sync.json`
+
+Restoring a snapshot overwrites the matching files and directories in `.codex`. Close Codex Desktop before restoring to avoid concurrent writes.
+
 ## Safety Notes
 
 - Mirror files rewrite `session_meta.id`, `model_provider`, and `forked_from_id`, so symlinks cannot replace mirror files.
 - The tool only refreshes mirrors it can identify and skips conflicts.
+- Restoring a backup overwrites current session data. Check the snapshot timestamp before restoring.
 - If Codex Desktop changes its JSONL or `session_index.jsonl` format, re-check the sync logic before applying writes.

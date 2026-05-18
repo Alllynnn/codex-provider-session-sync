@@ -6,6 +6,7 @@ import {
   Clock3,
   FolderSync,
   History,
+  RotateCcw,
   Pause,
   Play,
   Power,
@@ -39,6 +40,18 @@ type SyncReport = {
   provider_counts: Record<string, number>;
   last_run_at?: string;
   last_error?: string;
+  backup_snapshot_id?: string;
+  backup_snapshot_path?: string;
+};
+
+type BackupSnapshot = {
+  id: string;
+  created_at: string;
+  codex_home: string;
+  path: string;
+  file_count: number;
+  total_bytes: number;
+  reason: string;
 };
 
 const emptyReport: SyncReport = {
@@ -71,19 +84,22 @@ function App() {
   const [report, setReport] = useState<SyncReport>(emptyReport);
   const [busy, setBusy] = useState(false);
   const [autostart, setAutostart] = useState(false);
+  const [snapshots, setSnapshots] = useState<BackupSnapshot[]>([]);
   const [intervalDraft, setIntervalDraft] = useState('300');
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
-    const [nextSettings, nextReport] = await Promise.all([
+    const [nextSettings, nextReport, nextSnapshots] = await Promise.all([
       invoke<SyncSettings>('get_settings'),
       invoke<SyncReport | null>('get_last_report'),
+      invoke<BackupSnapshot[]>('get_backup_snapshots'),
     ]);
     const nextAutostart = await invoke<boolean>('get_autostart_enabled');
     setSettings(nextSettings);
     setAutostart(nextAutostart);
     setIntervalDraft(String(nextSettings.interval_seconds));
     setReport(nextReport ?? emptyReport);
+    setSnapshots(nextSnapshots);
   }
 
   useEffect(() => {
@@ -142,6 +158,34 @@ function App() {
     try {
       const nextReport = await invoke<SyncReport>('sync_now');
       setReport(nextReport);
+      await refresh();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createBackup() {
+    setBusy(true);
+    setError(null);
+    try {
+      await invoke<BackupSnapshot>('create_backup_now');
+      await refresh();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function restoreBackup(snapshot: BackupSnapshot) {
+    const confirmed = window.confirm(`确定恢复到备份 ${snapshot.id} 吗？这会覆盖当前 Codex 会话目录。`);
+    if (!confirmed) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await invoke('restore_backup', { snapshotId: snapshot.id });
       await refresh();
     } catch (err) {
       setError(String(err));
@@ -218,6 +262,9 @@ function App() {
           <button className="icon-button" onClick={syncNow} disabled={busy} title="立即同步">
             <RefreshCw size={17} />
           </button>
+          <button className="icon-button" onClick={createBackup} disabled={busy} title="创建备份">
+            <History size={17} />
+          </button>
           <button className="icon-button" onClick={openLog} title="打开日志">
             <TerminalSquare size={17} />
           </button>
@@ -280,6 +327,42 @@ function App() {
               </span>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold">备份与恢复</h2>
+            <p className="mt-1 text-sm text-slate-500">每次同步前自动创建快照，也可以手动创建。</p>
+          </div>
+          <button className="rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-blue-600" onClick={createBackup} disabled={busy}>
+            创建备份
+          </button>
+        </div>
+        <div className="space-y-3">
+          {snapshots.slice(0, 4).map((snapshot) => (
+            <article className="flex items-center rounded-2xl border border-slate-200 bg-white p-4" key={snapshot.id}>
+              <span className="mr-4 flex size-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <History size={17} />
+              </span>
+              <div>
+                <h3 className="font-semibold">{snapshot.id}</h3>
+                <p className="text-sm text-slate-500">
+                  {snapshot.file_count} 个文件 · {Math.round(snapshot.total_bytes / 1024)} KB · {snapshot.reason}
+                </p>
+              </div>
+              <button
+                className="ml-auto flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700"
+                disabled={busy}
+                onClick={() => restoreBackup(snapshot)}
+              >
+                <RotateCcw size={15} />
+                恢复
+              </button>
+            </article>
+          ))}
+          {snapshots.length === 0 && <p className="rounded-xl bg-slate-50 px-4 py-4 text-sm text-slate-500">还没有备份快照。</p>}
         </div>
       </section>
     </main>

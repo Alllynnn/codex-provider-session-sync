@@ -49,6 +49,8 @@ pub struct SyncReport {
     pub index_updated: usize,
     pub last_run_at: Option<String>,
     pub last_error: Option<String>,
+    pub backup_snapshot_id: Option<String>,
+    pub backup_snapshot_path: Option<PathBuf>,
 }
 
 pub fn sync_all(codex_home: &Path, backup_dir: &Path, providers: &[String], apply: bool) -> Result<SyncReport> {
