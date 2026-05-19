@@ -43,7 +43,7 @@ button:disabled {
 
 .app-header {
   display: grid;
-  grid-template-columns: 134px 82px 264px 1fr;
+  grid-template-columns: 134px 82px 344px 1fr;
   align-items: center;
   gap: 14px;
 }
@@ -143,11 +143,11 @@ button:disabled {
 .nav-button:first-child,
 .nav-button:nth-child(3),
 .nav-button:nth-child(4) {
-  width: 58px;
+  width: 78px;
 }
 
 .nav-button:nth-child(2) {
-  width: 104px;
+  width: 108px;
 }
 
 .nav-button:hover {
@@ -162,9 +162,9 @@ button:disabled {
 }
 
 .nav-label {
-  width: 1em;
-  line-height: 1.05;
+  line-height: 1;
   text-align: center;
+  white-space: nowrap;
 }
 
 .nav-label-wide {
