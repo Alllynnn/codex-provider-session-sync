@@ -36,6 +36,8 @@ struct MirrorPlan {
 pub struct SyncReport {
     pub files_scanned: usize,
     pub provider_counts: BTreeMap<String, usize>,
+    pub session_groups: usize,
+    pub mirrored_sessions: usize,
     pub source_sessions: usize,
     pub mirror_needed: usize,
     pub mirror_created: usize,
@@ -56,12 +58,31 @@ pub struct SyncReport {
 pub fn sync_all(codex_home: &Path, backup_dir: &Path, providers: &[String], apply: bool) -> Result<SyncReport> {
     let mut report = SyncReport::default();
     let sessions = collect_sessions(codex_home, &mut report)?;
+    fill_session_summary(&mut report, &sessions, providers);
     let plans = build_lineage_mirror_plans(&sessions, providers);
     report.source_sessions = plans.iter().map(|plan| plan.source.session_id.clone()).collect::<HashSet<_>>().len();
     apply_mirrors(&plans, codex_home, backup_dir, apply, &mut report)?;
     update_session_index(&plans, codex_home, backup_dir, apply, &mut report)?;
     report.last_run_at = Some(Utc::now().to_rfc3339());
     Ok(report)
+}
+
+fn fill_session_summary(report: &mut SyncReport, sessions: &[Session], providers: &[String]) {
+    let provider_set = providers.iter().cloned().collect::<HashSet<_>>();
+    let configured_sessions = sessions
+        .iter()
+        .filter(|session| provider_set.contains(&session.provider))
+        .collect::<Vec<_>>();
+
+    report.session_groups = configured_sessions
+        .iter()
+        .map(|session| lineage_key(session))
+        .collect::<HashSet<_>>()
+        .len();
+    report.mirrored_sessions = configured_sessions
+        .iter()
+        .filter(|session| session.forked_from_id.is_some())
+        .count();
 }
 
 fn iter_session_files(codex_home: &Path) -> Vec<PathBuf> {

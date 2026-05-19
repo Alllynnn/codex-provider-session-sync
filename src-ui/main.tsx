@@ -27,6 +27,8 @@ type SyncSettings = {
 type SyncReport = {
   files_scanned: number;
   source_sessions: number;
+  session_groups: number;
+  mirrored_sessions: number;
   mirror_needed: number;
   mirror_created: number;
   mirror_existing: number;
@@ -57,6 +59,8 @@ type BackupSnapshot = {
 const emptyReport: SyncReport = {
   files_scanned: 0,
   source_sessions: 0,
+  session_groups: 0,
+  mirrored_sessions: 0,
   mirror_needed: 0,
   mirror_created: 0,
   mirror_existing: 0,
@@ -131,8 +135,6 @@ function App() {
       primary: index === 0,
     }));
   }, [settings, report.provider_counts]);
-
-  const mirrorTotal = report.mirror_existing + report.mirror_created + report.mirror_refreshed;
 
   async function toggleSync() {
     if (!settings) return;
@@ -304,8 +306,8 @@ function App() {
       {activeTab === '聚合' && (
         <>
           <section className="mt-8 grid grid-cols-3 gap-4">
-            <Metric icon={<Activity size={18} />} label="源会话" value={String(report.source_sessions)} />
-            <Metric icon={<RefreshCw size={18} />} label="镜像会话" value={String(mirrorTotal)} />
+            <Metric icon={<Activity size={18} />} label="会话组" value={String(report.session_groups)} />
+            <Metric icon={<RefreshCw size={18} />} label="同步副本" value={String(report.mirrored_sessions)} />
             <Metric icon={<History size={18} />} label="上次同步" value={formatDateTime(report.last_run_at)} />
           </section>
           <SyncConfig settings={settings} intervalDraft={intervalDraft} setIntervalDraft={setIntervalDraft} saveInterval={saveInterval} busy={busy} />
