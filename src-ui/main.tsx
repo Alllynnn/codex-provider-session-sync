@@ -79,6 +79,14 @@ function shortProviderName(provider: string) {
   return provider.trim().slice(0, 1).toUpperCase() || 'P';
 }
 
+function formatDateTime(value?: string) {
+  if (!value) return '未运行';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState<'聚合' | 'Provider' | '日志' | '设置'>('聚合');
   const [settings, setSettings] = useState<SyncSettings | null>(null);
@@ -123,6 +131,8 @@ function App() {
       primary: index === 0,
     }));
   }, [settings, report.provider_counts]);
+
+  const mirrorTotal = report.mirror_existing + report.mirror_created + report.mirror_refreshed;
 
   async function toggleSync() {
     if (!settings) return;
@@ -271,8 +281,8 @@ function App() {
         </nav>
 
         <div className="top-actions" aria-label="快捷操作">
-          <button className="action-button" onClick={toggleAutostart} disabled={busy} title={autostart ? '关闭开机自启' : '开启开机自启'} aria-label={autostart ? '关闭开机自启' : '开启开机自启'}>
-            <Settings size={17} className={autostart ? 'text-blue-600' : undefined} />
+          <button className="action-button" onClick={() => setActiveTab('设置')} disabled={busy} title="设置" aria-label="设置">
+            <Settings size={17} />
           </button>
           <button className="action-button" onClick={syncNow} disabled={busy} title="立即同步" aria-label="立即同步">
             <RefreshCw size={17} />
@@ -295,8 +305,8 @@ function App() {
         <>
           <section className="mt-8 grid grid-cols-3 gap-4">
             <Metric icon={<Activity size={18} />} label="源会话" value={String(report.source_sessions)} />
-            <Metric icon={<RefreshCw size={18} />} label="刷新镜像" value={String(report.mirror_refreshed)} />
-            <Metric icon={<History size={18} />} label="上次同步" value={report.last_run_at ?? '未运行'} />
+            <Metric icon={<RefreshCw size={18} />} label="镜像会话" value={String(mirrorTotal)} />
+            <Metric icon={<History size={18} />} label="上次同步" value={formatDateTime(report.last_run_at)} />
           </section>
           <SyncConfig settings={settings} intervalDraft={intervalDraft} setIntervalDraft={setIntervalDraft} saveInterval={saveInterval} busy={busy} />
           <BackupPanel snapshots={snapshots} busy={busy} createBackup={createBackup} restoreBackup={restoreBackup} openBackupDir={openBackupDir} />

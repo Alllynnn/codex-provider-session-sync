@@ -214,8 +214,8 @@ fn build_lineage_mirror_plans(sessions: &[Session], providers: &[String]) -> Vec
                 provider_sessions.insert(session.provider.clone(), session.clone());
             }
         }
-        let real_sources = provider_sessions
-            .values()
+        let real_sources = group_sessions
+            .iter()
             .filter(|session| session.forked_from_id.is_none())
             .cloned()
             .collect::<Vec<_>>();
