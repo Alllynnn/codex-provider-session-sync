@@ -236,6 +236,24 @@ fn open_log() -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_log_tail() -> Result<String, String> {
+    let settings = load_settings();
+    if !settings.log_file.exists() {
+        return Ok(String::new());
+    }
+    let text = fs::read_to_string(settings.log_file).map_err(|err| err.to_string())?;
+    let lines = text.lines().rev().take(80).collect::<Vec<_>>();
+    Ok(lines.into_iter().rev().collect::<Vec<_>>().join("\n"))
+}
+
+#[tauri::command]
+fn open_backup_dir() -> Result<(), String> {
+    let dir = default_backup_dir();
+    fs::create_dir_all(&dir).map_err(|err| err.to_string())?;
+    opener::open(dir).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
 fn exit_app(app: AppHandle) {
     app.exit(0);
 }
@@ -255,6 +273,8 @@ pub fn run() {
             create_backup_now,
             restore_backup,
             open_log,
+            get_log_tail,
+            open_backup_dir,
             exit_app
         ])
         .setup(|app| {

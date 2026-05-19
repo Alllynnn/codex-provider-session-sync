@@ -80,19 +80,22 @@ function shortProviderName(provider: string) {
 }
 
 function App() {
+  const [activeTab, setActiveTab] = useState<'聚合' | 'Provider' | '日志' | '设置'>('聚合');
   const [settings, setSettings] = useState<SyncSettings | null>(null);
   const [report, setReport] = useState<SyncReport>(emptyReport);
   const [busy, setBusy] = useState(false);
   const [autostart, setAutostart] = useState(false);
   const [snapshots, setSnapshots] = useState<BackupSnapshot[]>([]);
+  const [logText, setLogText] = useState('');
   const [intervalDraft, setIntervalDraft] = useState('300');
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
-    const [nextSettings, nextReport, nextSnapshots] = await Promise.all([
+    const [nextSettings, nextReport, nextSnapshots, nextLogText] = await Promise.all([
       invoke<SyncSettings>('get_settings'),
       invoke<SyncReport | null>('get_last_report'),
       invoke<BackupSnapshot[]>('get_backup_snapshots'),
+      invoke<string>('get_log_tail'),
     ]);
     const nextAutostart = await invoke<boolean>('get_autostart_enabled');
     setSettings(nextSettings);
@@ -100,6 +103,7 @@ function App() {
     setIntervalDraft(String(nextSettings.interval_seconds));
     setReport(nextReport ?? emptyReport);
     setSnapshots(nextSnapshots);
+    setLogText(nextLogText);
   }
 
   useEffect(() => {
@@ -210,13 +214,25 @@ function App() {
   async function openLog() {
     try {
       await invoke('open_log');
+      setActiveTab('日志');
+      await refresh();
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
+  async function openBackupDir() {
+    try {
+      await invoke('open_backup_dir');
     } catch (err) {
       setError(String(err));
     }
   }
 
   async function exitApp() {
-    await invoke('exit_app');
+    if (window.confirm('确定退出同步程序吗？')) {
+      await invoke('exit_app');
+    }
   }
 
   if (!settings) {
@@ -245,126 +261,87 @@ function App() {
         </button>
 
         <nav className="mx-auto flex rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-100">
-          {['聚合', 'Provider', '日志', '设置'].map((item, index) => (
-            <span
-              className={`rounded-xl px-5 py-2 text-sm ${index === 0 ? 'bg-slate-50 font-semibold text-slate-950' : 'text-slate-500'}`}
+          {(['聚合', 'Provider', '日志', '设置'] as const).map((item) => (
+            <button
+              className={`rounded-xl px-5 py-2 text-sm transition ${
+                activeTab === item ? 'bg-slate-50 font-semibold text-slate-950' : 'text-slate-500 hover:text-slate-950'
+              }`}
               key={item}
+              onClick={() => setActiveTab(item)}
             >
               {item}
-            </span>
+            </button>
           ))}
         </nav>
 
-        <div className="flex rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-100">
-          <button className="icon-button" onClick={toggleAutostart} disabled={busy} title={autostart ? '关闭开机自启' : '开启开机自启'}>
+        <div className="flex items-center gap-2 rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-100">
+          <button className="action-button" onClick={toggleAutostart} disabled={busy} title={autostart ? '关闭开机自启' : '开启开机自启'}>
             <Settings size={17} className={autostart ? 'text-blue-600' : undefined} />
+            <span>{autostart ? '自启中' : '自启'}</span>
           </button>
-          <button className="icon-button" onClick={syncNow} disabled={busy} title="立即同步">
+          <button className="action-button" onClick={syncNow} disabled={busy} title="立即同步">
             <RefreshCw size={17} />
+            <span>同步</span>
           </button>
-          <button className="icon-button" onClick={createBackup} disabled={busy} title="创建备份">
+          <button className="action-button" onClick={createBackup} disabled={busy} title="创建备份">
             <History size={17} />
+            <span>备份</span>
           </button>
-          <button className="icon-button" onClick={openLog} title="打开日志">
+          <button className="action-button" onClick={openLog} title="打开日志">
             <TerminalSquare size={17} />
+            <span>日志</span>
           </button>
-          <button className="icon-button" onClick={exitApp} title="退出">
+          <button className="action-button" onClick={exitApp} title="退出">
             <Power size={17} />
+            <span>退出</span>
           </button>
         </div>
       </header>
 
       {error && <section className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</section>}
 
-      <section className="mt-8 grid grid-cols-3 gap-4">
-        <Metric icon={<Activity size={18} />} label="源会话" value={String(report.source_sessions)} />
-        <Metric icon={<RefreshCw size={18} />} label="刷新镜像" value={String(report.mirror_refreshed)} />
-        <Metric icon={<History size={18} />} label="上次同步" value={report.last_run_at ?? '未运行'} />
-      </section>
+      {activeTab === '聚合' && (
+        <>
+          <section className="mt-8 grid grid-cols-3 gap-4">
+            <Metric icon={<Activity size={18} />} label="源会话" value={String(report.source_sessions)} />
+            <Metric icon={<RefreshCw size={18} />} label="刷新镜像" value={String(report.mirror_refreshed)} />
+            <Metric icon={<History size={18} />} label="上次同步" value={report.last_run_at ?? '未运行'} />
+          </section>
+          <SyncConfig settings={settings} intervalDraft={intervalDraft} setIntervalDraft={setIntervalDraft} saveInterval={saveInterval} busy={busy} />
+          <BackupPanel snapshots={snapshots} busy={busy} createBackup={createBackup} restoreBackup={restoreBackup} openBackupDir={openBackupDir} />
+        </>
+      )}
 
-      <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold">同步配置</h2>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">{settings.codex_home}</p>
-          </div>
-          <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-1">
-            <Clock3 className="ml-3 text-slate-500" size={16} />
-            <input
-              className="h-9 w-24 bg-transparent text-center text-sm font-semibold outline-none"
-              value={intervalDraft}
-              onChange={(event) => setIntervalDraft(event.target.value)}
-            />
-            <span className="pr-1 text-sm text-slate-500">秒</span>
-            <button className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-blue-600 shadow-sm" onClick={saveInterval} disabled={busy}>
-              保存
-            </button>
-          </div>
-        </div>
-      </section>
+      {activeTab === 'Provider' && <ProviderPanel providerRows={providerRows} />}
 
-      <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold">Provider 聚合列表</h2>
-          <span className="text-sm text-slate-500">{providerRows.length} 个 provider</span>
-        </div>
-        <div className="space-y-3">
-          {providerRows.map((row) => (
-            <article
-              className={`flex items-center rounded-2xl border p-4 ${row.primary ? 'border-blue-300 bg-blue-50/60' : 'border-slate-200 bg-white'}`}
-              key={row.provider}
-            >
-              <span className="mr-4 cursor-grab text-slate-300">⋮⋮</span>
-              <span className={`mr-4 flex size-9 items-center justify-center rounded-xl text-sm font-semibold ${row.tone}`}>
-                {shortProviderName(row.provider)}
-              </span>
-              <div>
-                <h3 className="font-semibold">{row.provider}</h3>
-                <p className="text-sm text-blue-600">{row.count} 条会话记录</p>
-              </div>
-              <span className="ml-auto rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm">
-                {row.primary ? '优先源' : '自动聚合'}
-              </span>
-            </article>
-          ))}
-        </div>
-      </section>
+      {activeTab === '日志' && <LogPanel logText={logText} openLog={openLog} />}
 
-      <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold">备份与恢复</h2>
-            <p className="mt-1 text-sm text-slate-500">每次同步前自动创建快照，也可以手动创建。</p>
-          </div>
-          <button className="rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-blue-600" onClick={createBackup} disabled={busy}>
-            创建备份
-          </button>
-        </div>
-        <div className="space-y-3">
-          {snapshots.slice(0, 4).map((snapshot) => (
-            <article className="flex items-center rounded-2xl border border-slate-200 bg-white p-4" key={snapshot.id}>
-              <span className="mr-4 flex size-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                <History size={17} />
-              </span>
-              <div>
-                <h3 className="font-semibold">{snapshot.id}</h3>
-                <p className="text-sm text-slate-500">
-                  {snapshot.file_count} 个文件 · {Math.round(snapshot.total_bytes / 1024)} KB · {snapshot.reason}
-                </p>
-              </div>
-              <button
-                className="ml-auto flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700"
-                disabled={busy}
-                onClick={() => restoreBackup(snapshot)}
-              >
-                <RotateCcw size={15} />
-                恢复
+      {activeTab === '设置' && (
+        <>
+          <SyncConfig settings={settings} intervalDraft={intervalDraft} setIntervalDraft={setIntervalDraft} saveInterval={saveInterval} busy={busy} />
+          <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
+            <h2 className="text-base font-semibold">程序设置</h2>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button className="large-button" onClick={toggleAutostart} disabled={busy}>
+                <Settings size={17} />
+                {autostart ? '关闭开机自启' : '开启开机自启'}
               </button>
-            </article>
-          ))}
-          {snapshots.length === 0 && <p className="rounded-xl bg-slate-50 px-4 py-4 text-sm text-slate-500">还没有备份快照。</p>}
-        </div>
-      </section>
+              <button className="large-button" onClick={openBackupDir}>
+                <History size={17} />
+                打开备份目录
+              </button>
+              <button className="large-button" onClick={openLog}>
+                <TerminalSquare size={17} />
+                打开日志文件
+              </button>
+              <button className="large-button text-red-600" onClick={exitApp}>
+                <Power size={17} />
+                退出程序
+              </button>
+            </div>
+          </section>
+        </>
+      )}
     </main>
   );
 }
@@ -375,6 +352,130 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
       <div className="mb-4 flex size-9 items-center justify-center rounded-xl bg-slate-50 text-slate-600">{icon}</div>
       <p className="text-sm text-slate-500">{label}</p>
       <p className="mt-1 text-2xl font-semibold">{value}</p>
+    </section>
+  );
+}
+
+function SyncConfig({
+  settings,
+  intervalDraft,
+  setIntervalDraft,
+  saveInterval,
+  busy,
+}: {
+  settings: SyncSettings;
+  intervalDraft: string;
+  setIntervalDraft: (value: string) => void;
+  saveInterval: () => void;
+  busy: boolean;
+}) {
+  return (
+    <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold">同步配置</h2>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500">{settings.codex_home}</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl bg-slate-50 p-1">
+          <Clock3 className="ml-3 text-slate-500" size={16} />
+          <input className="h-9 w-24 bg-transparent text-center text-sm font-semibold outline-none" value={intervalDraft} onChange={(event) => setIntervalDraft(event.target.value)} />
+          <span className="pr-1 text-sm text-slate-500">秒</span>
+          <button className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-blue-600 shadow-sm" onClick={saveInterval} disabled={busy}>
+            保存
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProviderPanel({ providerRows }: { providerRows: Array<{ provider: string; count: number; tone: string; primary: boolean }> }) {
+  return (
+    <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-base font-semibold">Provider 聚合列表</h2>
+        <span className="text-sm text-slate-500">{providerRows.length} 个 provider</span>
+      </div>
+      <div className="space-y-3">
+        {providerRows.map((row) => (
+          <article className={`flex items-center rounded-2xl border p-4 ${row.primary ? 'border-blue-300 bg-blue-50/60' : 'border-slate-200 bg-white'}`} key={row.provider}>
+            <span className="mr-4 cursor-grab text-slate-300">⋮⋮</span>
+            <span className={`mr-4 flex size-9 items-center justify-center rounded-xl text-sm font-semibold ${row.tone}`}>{shortProviderName(row.provider)}</span>
+            <div>
+              <h3 className="font-semibold">{row.provider}</h3>
+              <p className="text-sm text-blue-600">{row.count} 条会话记录</p>
+            </div>
+            <span className="ml-auto rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm">{row.primary ? '优先源' : '自动聚合'}</span>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LogPanel({ logText, openLog }: { logText: string; openLog: () => void }) {
+  return (
+    <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-base font-semibold">同步日志</h2>
+        <button className="rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-blue-600" onClick={openLog}>
+          打开日志文件
+        </button>
+      </div>
+      <pre className="max-h-[420px] overflow-auto rounded-xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">{logText || '暂无日志。'}</pre>
+    </section>
+  );
+}
+
+function BackupPanel({
+  snapshots,
+  busy,
+  createBackup,
+  restoreBackup,
+  openBackupDir,
+}: {
+  snapshots: BackupSnapshot[];
+  busy: boolean;
+  createBackup: () => void;
+  restoreBackup: (snapshot: BackupSnapshot) => void;
+  openBackupDir: () => void;
+}) {
+  return (
+    <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold">备份与恢复</h2>
+          <p className="mt-1 text-sm text-slate-500">每次同步前自动创建快照，也可以手动创建。</p>
+        </div>
+        <div className="flex gap-2">
+          <button className="rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-blue-600" onClick={openBackupDir}>
+            打开目录
+          </button>
+          <button className="rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-blue-600" onClick={createBackup} disabled={busy}>
+            创建备份
+          </button>
+        </div>
+      </div>
+      <div className="space-y-3">
+        {snapshots.slice(0, 4).map((snapshot) => (
+          <article className="flex items-center rounded-2xl border border-slate-200 bg-white p-4" key={snapshot.id}>
+            <span className="mr-4 flex size-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+              <History size={17} />
+            </span>
+            <div>
+              <h3 className="font-semibold">{snapshot.id}</h3>
+              <p className="text-sm text-slate-500">
+                {snapshot.file_count} 个文件 · {Math.round(snapshot.total_bytes / 1024)} KB · {snapshot.reason}
+              </p>
+            </div>
+            <button className="ml-auto flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700" disabled={busy} onClick={() => restoreBackup(snapshot)}>
+              <RotateCcw size={15} />
+              恢复
+            </button>
+          </article>
+        ))}
+        {snapshots.length === 0 && <p className="rounded-xl bg-slate-50 px-4 py-4 text-sm text-slate-500">还没有备份快照。</p>}
+      </div>
     </section>
   );
 }
