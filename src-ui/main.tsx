@@ -241,59 +241,55 @@ function App() {
 
   return (
     <main className="min-h-screen bg-[#fbfbfc] px-6 py-5 text-slate-950">
-      <header className="flex items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+      <header className="app-header">
+        <div className="brand">
+          <div className="brand-icon">
             <FolderSync size={20} />
           </div>
-          <h1 className="text-xl font-semibold text-blue-600">Codex Sync</h1>
+          <h1>Codex Sync</h1>
         </div>
 
         <button
-          className={`ml-4 flex h-9 items-center gap-2 rounded-full px-3 text-sm transition ${
-            settings.enabled ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'
-          }`}
+          className={`sync-toggle ${settings.enabled ? 'is-on' : 'is-off'}`}
           disabled={busy}
           onClick={toggleSync}
         >
           {settings.enabled ? <Play size={15} /> : <Pause size={15} />}
-          {settings.enabled ? '自动同步' : '已暂停'}
+          <span>{settings.enabled ? '自动同步' : '已暂停'}</span>
         </button>
 
-        <nav className="mx-auto flex rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-100">
+        <nav className="top-nav" aria-label="主导航">
           {(['聚合', 'Provider', '日志', '设置'] as const).map((item) => (
             <button
-              className={`rounded-xl px-5 py-2 text-sm transition ${
-                activeTab === item ? 'bg-slate-50 font-semibold text-slate-950' : 'text-slate-500 hover:text-slate-950'
-              }`}
+              className={`nav-button ${activeTab === item ? 'is-active' : ''}`}
               key={item}
               onClick={() => setActiveTab(item)}
             >
-              {item}
+              <span className={item === 'Provider' ? 'nav-label-wide' : 'nav-label'}>{item}</span>
             </button>
           ))}
         </nav>
 
-        <div className="flex items-center gap-2 rounded-2xl bg-white p-1 shadow-sm ring-1 ring-slate-100">
+        <div className="top-actions" aria-label="快捷操作">
           <button className="action-button" onClick={toggleAutostart} disabled={busy} title={autostart ? '关闭开机自启' : '开启开机自启'}>
             <Settings size={17} className={autostart ? 'text-blue-600' : undefined} />
-            <span>{autostart ? '自启中' : '自启'}</span>
+            <span className="action-label">自启</span>
           </button>
           <button className="action-button" onClick={syncNow} disabled={busy} title="立即同步">
             <RefreshCw size={17} />
-            <span>同步</span>
+            <span className="action-label">同步</span>
           </button>
           <button className="action-button" onClick={createBackup} disabled={busy} title="创建备份">
             <History size={17} />
-            <span>备份</span>
+            <span className="action-label">备份</span>
           </button>
           <button className="action-button" onClick={openLog} title="打开日志">
             <TerminalSquare size={17} />
-            <span>日志</span>
+            <span className="action-label">日志</span>
           </button>
           <button className="action-button" onClick={exitApp} title="退出">
             <Power size={17} />
-            <span>退出</span>
+            <span className="action-label">退出</span>
           </button>
         </div>
       </header>
