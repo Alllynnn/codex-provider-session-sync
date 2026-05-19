@@ -18,6 +18,7 @@ use std::{
 };
 use sync::{sync_all, SyncReport};
 use tauri::{
+    image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, State, WindowEvent,
@@ -129,6 +130,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let menu = Menu::with_items(app, &[&open, &toggle, &interval, &exit])?;
 
     TrayIconBuilder::new()
+        .icon(Image::from_bytes(include_bytes!("../icons/icon.ico"))?)
         .tooltip("Codex Provider Session Sync")
         .menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
