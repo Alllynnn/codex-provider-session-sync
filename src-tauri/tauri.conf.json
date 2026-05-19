@@ -16,7 +16,7 @@
         "title": "Codex Provider Session Sync",
         "width": 900,
         "height": 640,
-        "minWidth": 760,
+        "minWidth": 860,
         "minHeight": 560,
         "center": true,
         "visible": true
