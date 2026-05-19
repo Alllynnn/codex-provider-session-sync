@@ -4,6 +4,8 @@ English README: [README.md](README.md)
 
 Codex Provider Session Sync 是一个 Tauri 桌面应用，用来把 Codex Desktop 多个 `model_provider` 下的会话自动统一聚合。它的目标是让你在 `openai`、`openrouter`、`custom` 等 provider 之间切换时，仍然能看到同一批会话历史。
 
+系统运行流程 HTML 文档：[docs/system-flow.html](docs/system-flow.html)
+
 ## 技术栈
 
 - 桌面壳：Tauri v2

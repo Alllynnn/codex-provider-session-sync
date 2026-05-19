@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Codex Provider Session Sync - 系统运行流程</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f9fc;
+        --panel: #ffffff;
+        --ink: #102033;
+        --muted: #66758a;
+        --line: #dce5f2;
+        --blue: #2563eb;
+        --blue-soft: #eff6ff;
+        --orange: #f97316;
+        --orange-soft: #fff7ed;
+        --green: #059669;
+        --green-soft: #ecfdf5;
+        --red: #dc2626;
+        --red-soft: #fef2f2;
+        --shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: Inter, "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+        line-height: 1.6;
+      }
+
+      main {
+        width: min(1180px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 32px 0 56px;
+      }
+
+      header {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 24px;
+        align-items: start;
+        margin-bottom: 24px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 34px;
+        line-height: 1.18;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        margin-bottom: 16px;
+        font-size: 22px;
+      }
+
+      h3 {
+        margin-bottom: 8px;
+        font-size: 16px;
+      }
+
+      code {
+        border-radius: 7px;
+        background: #f1f5f9;
+        padding: 2px 6px;
+        color: #0f172a;
+        font-family: "Cascadia Mono", Consolas, monospace;
+        font-size: 0.92em;
+      }
+
+      .lead {
+        margin-top: 12px;
+        max-width: 820px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        background: var(--blue-soft);
+        padding: 8px 12px;
+        color: var(--blue);
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .panel {
+        margin-top: 18px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--panel);
+        padding: 22px;
+        box-shadow: var(--shadow);
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .grid.cols-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid.cols-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        padding: 16px;
+      }
+
+      .card p,
+      li {
+        color: var(--muted);
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+        align-items: stretch;
+      }
+
+      .step {
+        position: relative;
+        min-height: 122px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fff;
+        padding: 16px;
+      }
+
+      .step:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        right: -12px;
+        width: 12px;
+        border-top: 2px solid var(--line);
+      }
+
+      .num {
+        display: inline-grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        border-radius: 999px;
+        background: var(--blue-soft);
+        color: var(--blue);
+        font-weight: 800;
+      }
+
+      .step h3 {
+        margin-top: 10px;
+      }
+
+      .step p {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .lane {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 14px;
+        align-items: start;
+        border-top: 1px solid var(--line);
+        padding: 18px 0;
+      }
+
+      .lane:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+
+      .lane-title {
+        border-radius: 12px;
+        background: var(--blue-soft);
+        padding: 12px;
+        color: var(--blue);
+        font-weight: 800;
+      }
+
+      .lane-body {
+        display: grid;
+        gap: 10px;
+      }
+
+      .mini-flow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .pill {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff;
+        padding: 8px 12px;
+        color: #334155;
+        font-size: 14px;
+      }
+
+      .arrow {
+        color: #94a3b8;
+        font-weight: 800;
+      }
+
+      .data-map {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      .data-box {
+        border-radius: 14px;
+        padding: 16px;
+      }
+
+      .data-box.source {
+        border: 1px solid #bfdbfe;
+        background: var(--blue-soft);
+      }
+
+      .data-box.output {
+        border: 1px solid #fed7aa;
+        background: var(--orange-soft);
+      }
+
+      .warning {
+        border-color: #fecaca;
+        background: var(--red-soft);
+      }
+
+      .ok {
+        border-color: #bbf7d0;
+        background: var(--green-soft);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border-radius: 14px;
+        font-size: 14px;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f8fafc;
+        color: #334155;
+      }
+
+      td {
+        color: var(--muted);
+      }
+
+      .footer-note {
+        margin-top: 20px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      @media (max-width: 980px) {
+        header,
+        .grid.cols-2,
+        .grid.cols-3,
+        .data-map,
+        .lane {
+          grid-template-columns: 1fr;
+        }
+
+        .flow {
+          grid-template-columns: 1fr;
+        }
+
+        .step:not(:last-child)::after {
+          top: auto;
+          right: auto;
+          bottom: -12px;
+          left: 24px;
+          width: 0;
+          height: 12px;
+          border-top: 0;
+          border-left: 2px solid var(--line);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Codex Provider Session Sync 系统运行流程</h1>
+          <p class="lead">
+            这个程序的核心目标是把 Codex Desktop 在不同 <code>model_provider</code> 下产生的会话聚合成同一批可见历史。它不是聊天客户端，而是一个后台同步器：读取本地会话文件，生成或刷新跨 provider 的镜像副本，并维护索引与备份。
+          </p>
+        </div>
+        <div class="badge">Tauri + React + Rust</div>
+      </header>
+
+      <section class="panel">
+        <h2>一眼看懂</h2>
+        <div class="flow">
+          <div class="step">
+            <span class="num">1</span>
+            <h3>程序启动</h3>
+            <p>启动 Tauri 桌面壳，创建主窗口、托盘图标和后台线程。</p>
+          </div>
+          <div class="step">
+            <span class="num">2</span>
+            <h3>读取配置</h3>
+            <p>读取 <code>.codex/provider-session-sync.json</code>，得到开关、间隔和 provider 列表。</p>
+          </div>
+          <div class="step">
+            <span class="num">3</span>
+            <h3>扫描会话</h3>
+            <p>扫描 <code>sessions</code> 与 <code>archived_sessions</code> 下的 JSONL 文件。</p>
+          </div>
+          <div class="step">
+            <span class="num">4</span>
+            <h3>同步镜像</h3>
+            <p>按会话 lineage 生成或刷新其它 provider 的镜像会话文件。</p>
+          </div>
+          <div class="step">
+            <span class="num">5</span>
+            <h3>展示状态</h3>
+            <p>主界面展示会话组、同步副本、Provider 分布、日志和备份。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>模块职责</h2>
+        <div class="grid cols-3">
+          <div class="card">
+            <h3>前端 UI</h3>
+            <p><code>src-ui/main.tsx</code> 负责窗口界面、按钮点击、状态刷新、日志和备份列表展示。</p>
+          </div>
+          <div class="card">
+            <h3>Tauri 后端</h3>
+            <p><code>src-tauri/src/lib.rs</code> 负责托盘、自启动、后台线程、命令入口和操作互斥锁。</p>
+          </div>
+          <div class="card">
+            <h3>同步核心</h3>
+            <p><code>src-tauri/src/sync.rs</code> 负责扫描 JSONL、识别 provider、生成镜像、更新索引。</p>
+          </div>
+          <div class="card">
+            <h3>配置管理</h3>
+            <p><code>settings.rs</code> 管理同步开关、间隔、provider 列表和默认路径。</p>
+          </div>
+          <div class="card">
+            <h3>备份恢复</h3>
+            <p><code>backup.rs</code> 创建快照、列出快照、恢复指定快照。</p>
+          </div>
+          <div class="card">
+            <h3>系统集成</h3>
+            <p>Windows 托盘图标、HKCU Run 开机自启、release exe 都由 Tauri 侧处理。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>启动流程</h2>
+        <div class="lane">
+          <div class="lane-title">普通启动</div>
+          <div class="lane-body">
+            <div class="mini-flow">
+              <span class="pill">运行 exe</span><span class="arrow">→</span>
+              <span class="pill">Tauri 初始化</span><span class="arrow">→</span>
+              <span class="pill">创建主窗口</span><span class="arrow">→</span>
+              <span class="pill">创建托盘图标</span><span class="arrow">→</span>
+              <span class="pill">启动后台同步线程</span>
+            </div>
+            <p>关闭窗口不会退出程序，只会隐藏窗口；托盘仍然保留，后台线程继续按间隔同步。</p>
+          </div>
+        </div>
+        <div class="lane">
+          <div class="lane-title">开机自启</div>
+          <div class="lane-body">
+            <div class="mini-flow">
+              <span class="pill">点击开启自启</span><span class="arrow">→</span>
+              <span class="pill">写入 HKCU Run</span><span class="arrow">→</span>
+              <span class="pill">下次登录 Windows 自动运行 exe</span>
+            </div>
+            <p>开机自启只写当前用户注册表，不需要管理员权限。</p>
+          </div>
+        </div>
+        <div class="lane">
+          <div class="lane-title">托盘交互</div>
+          <div class="lane-body">
+            <div class="mini-flow">
+              <span class="pill">左键点击托盘</span><span class="arrow">→</span>
+              <span class="pill">显示主窗口</span>
+              <span class="pill">右键菜单</span><span class="arrow">→</span>
+              <span class="pill">打开面板 / 开关同步 / 设置间隔 / 退出</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>同步流程</h2>
+        <div class="data-map">
+          <div class="data-box source">
+            <h3>输入数据</h3>
+            <p><code>C:\Users\&lt;用户名&gt;\.codex\sessions</code></p>
+            <p><code>C:\Users\&lt;用户名&gt;\.codex\archived_sessions</code></p>
+            <p><code>C:\Users\&lt;用户名&gt;\.codex\session_index.jsonl</code></p>
+          </div>
+          <div class="data-box output">
+            <h3>输出数据</h3>
+            <p>其它 provider 的镜像 JSONL 文件。</p>
+            <p>更新后的 <code>session_index.jsonl</code>。</p>
+            <p>同步日志和同步前备份快照。</p>
+          </div>
+        </div>
+
+        <div class="panel" style="box-shadow: none; margin-top: 16px">
+          <div class="flow">
+            <div class="step">
+              <span class="num">1</span>
+              <h3>创建同步前备份</h3>
+              <p>每次同步前先创建 <code>before-sync</code> 快照，降低写坏数据的风险。</p>
+            </div>
+            <div class="step">
+              <span class="num">2</span>
+              <h3>读取 session_meta</h3>
+              <p>每个 JSONL 中找到 <code>type=session_meta</code> 的记录，提取 ID、provider、fork 来源。</p>
+            </div>
+            <div class="step">
+              <span class="num">3</span>
+              <h3>按 lineage 分组</h3>
+              <p>真实会话用自己的 ID；镜像会话用 <code>forked_from_id</code> 回到原始会话组。</p>
+            </div>
+            <div class="step">
+              <span class="num">4</span>
+              <h3>选择 canonical</h3>
+              <p>在真实源会话中选出最适合的主来源，用它渲染其它 provider 的副本。</p>
+            </div>
+            <div class="step">
+              <span class="num">5</span>
+              <h3>写入镜像和索引</h3>
+              <p>改写镜像的会话 ID、provider、fork 来源，并补充索引行。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>关键数据字段</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>字段</th>
+              <th>来源</th>
+              <th>作用</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>session_meta.payload.id</code></td>
+              <td>JSONL 会话文件</td>
+              <td>会话 ID。镜像文件必须使用不同 ID，否则 Codex 会把它们当成同一个会话。</td>
+            </tr>
+            <tr>
+              <td><code>model_provider</code></td>
+              <td>JSONL 会话文件</td>
+              <td>决定会话属于 <code>openai</code>、<code>openrouter</code>、<code>custom</code> 等哪个 provider。</td>
+            </tr>
+            <tr>
+              <td><code>forked_from_id</code></td>
+              <td>镜像会话文件</td>
+              <td>标记这个会话是从哪个真实会话镜像来的，用于跨 provider 聚合。</td>
+            </tr>
+            <tr>
+              <td><code>session_index.jsonl</code></td>
+              <td>Codex 索引文件</td>
+              <td>让 Codex Desktop 的会话列表能看到新增或刷新后的镜像会话。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>首页指标口径</h2>
+        <div class="grid cols-3">
+          <div class="card">
+            <h3>会话组</h3>
+            <p>跨 provider 聚合后的对话数量。一个真实会话加上它的多个镜像副本，只算一个会话组。</p>
+          </div>
+          <div class="card">
+            <h3>同步副本</h3>
+            <p>当前工具维护的镜像/fork 副本数量，也就是带 <code>forked_from_id</code> 的同步副本。</p>
+          </div>
+          <div class="card">
+            <h3>上次同步</h3>
+            <p>后台同步或手动同步最近一次完成的本地时间，格式为 <code>YYYY-MM-DD HH:mm:ss</code>。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>备份与恢复</h2>
+        <div class="grid cols-2">
+          <div class="card ok">
+            <h3>备份什么时候发生</h3>
+            <ul>
+              <li>每次自动同步前自动创建 <code>before-sync</code> 快照。</li>
+              <li>手动点击备份时创建 <code>manual</code> 快照。</li>
+              <li>执行恢复前先创建 <code>before-restore</code> 回退快照。</li>
+            </ul>
+          </div>
+          <div class="card warning">
+            <h3>恢复时要注意</h3>
+            <ul>
+              <li>恢复会覆盖 <code>.codex</code> 下的会话目录和索引。</li>
+              <li>建议恢复前关闭 Codex Desktop，避免它同时写会话文件。</li>
+              <li>恢复操作和同步操作共享互斥锁，避免一边恢复一边同步。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>为什么不能用软链接</h2>
+        <p>
+          这个工具不是简单复制文件名。镜像会话必须改写 <code>session_meta.id</code>、<code>model_provider</code> 和关联的 thread/session ID，才能让不同 provider 看到“同一内容但不同身份”的会话。因此软链接会导致多个 provider 指向同一个原始 ID，无法正确出现在各自 provider 的会话列表里。
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>异常与安全策略</h2>
+        <div class="grid cols-2">
+          <div class="card">
+            <h3>冲突跳过</h3>
+            <p>如果目标文件已存在，但它的 ID 或 provider 不符合本工具生成规则，程序会认为它不是自己的镜像文件，跳过写入并记录冲突数。</p>
+          </div>
+          <div class="card">
+            <h3>全局写入锁</h3>
+            <p>同步、手动备份、恢复、保存开关和间隔共享同一个操作锁，避免多个写操作同时改 <code>.codex</code>。</p>
+          </div>
+          <div class="card">
+            <h3>日志尾部读取</h3>
+            <p>日志界面只读取日志文件尾部，再展示最后 80 行，避免日志变大后 UI 卡顿。</p>
+          </div>
+          <div class="card">
+            <h3>窗口关闭逻辑</h3>
+            <p>关闭主窗口只隐藏窗口；真正退出需要点击 UI 或托盘菜单里的退出。</p>
+          </div>
+        </div>
+      </section>
+
+      <p class="footer-note">
+        文档路径：<code>docs/system-flow.html</code>。本文件是静态 HTML，可以直接双击打开。
+      </p>
+    </main>
+  </body>
+</html>
