@@ -271,25 +271,20 @@ function App() {
         </nav>
 
         <div className="top-actions" aria-label="快捷操作">
-          <button className="action-button" onClick={toggleAutostart} disabled={busy} title={autostart ? '关闭开机自启' : '开启开机自启'}>
+          <button className="action-button" onClick={toggleAutostart} disabled={busy} title={autostart ? '关闭开机自启' : '开启开机自启'} aria-label={autostart ? '关闭开机自启' : '开启开机自启'}>
             <Settings size={17} className={autostart ? 'text-blue-600' : undefined} />
-            <span className="action-label">自启</span>
           </button>
-          <button className="action-button" onClick={syncNow} disabled={busy} title="立即同步">
+          <button className="action-button" onClick={syncNow} disabled={busy} title="立即同步" aria-label="立即同步">
             <RefreshCw size={17} />
-            <span className="action-label">同步</span>
           </button>
-          <button className="action-button" onClick={createBackup} disabled={busy} title="创建备份">
+          <button className="action-button" onClick={createBackup} disabled={busy} title="创建备份" aria-label="创建备份">
             <History size={17} />
-            <span className="action-label">备份</span>
           </button>
-          <button className="action-button" onClick={openLog} title="打开日志">
+          <button className="action-button" onClick={openLog} title="打开日志" aria-label="打开日志">
             <TerminalSquare size={17} />
-            <span className="action-label">日志</span>
           </button>
-          <button className="action-button" onClick={exitApp} title="退出">
+          <button className="action-button" onClick={exitApp} title="退出" aria-label="退出">
             <Power size={17} />
-            <span className="action-label">退出</span>
           </button>
         </div>
       </header>

@@ -119,7 +119,7 @@ button:disabled {
 
 .top-actions {
   justify-self: end;
-  gap: 2px;
+  gap: 4px;
 }
 
 .nav-button {
@@ -173,17 +173,15 @@ button:disabled {
 
 .action-button {
   display: flex;
-  width: 62px;
+  width: 42px;
   height: 54px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   border-radius: 16px;
   border: 0;
   background: transparent;
-  padding: 0 8px;
+  padding: 0;
   color: #526580;
-  font-size: 13px;
   transition:
     background-color 160ms ease,
     color 160ms ease;
@@ -192,12 +190,6 @@ button:disabled {
 .action-button:hover {
   background: #f8fafc;
   color: #0f172a;
-}
-
-.action-label {
-  width: 1em;
-  line-height: 1.05;
-  text-align: center;
 }
 
 .large-button {
