@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use chrono::{Local, Utc};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -93,6 +94,28 @@ pub fn list_snapshots(backup_root: &Path) -> Result<Vec<BackupSnapshot>> {
     }
     snapshots.sort_by(|left, right| right.created_at.cmp(&left.created_at));
     Ok(snapshots)
+}
+
+pub fn prune_snapshots(backup_root: &Path, keep_by_reason: &[(&str, usize)]) -> Result<usize> {
+    let snapshots = list_snapshots(backup_root)?;
+    let keep_map = keep_by_reason.iter().copied().collect::<HashMap<_, _>>();
+    let mut seen_by_reason: HashMap<String, usize> = HashMap::new();
+    let mut removed = 0;
+
+    for snapshot in snapshots {
+        let keep = keep_map.get(snapshot.reason.as_str()).copied().unwrap_or(3);
+        let seen = seen_by_reason.entry(snapshot.reason.clone()).or_insert(0);
+        *seen += 1;
+        if *seen <= keep {
+            continue;
+        }
+        if snapshot.path.exists() {
+            fs::remove_dir_all(&snapshot.path).with_context(|| format!("remove old snapshot {}", snapshot.path.display()))?;
+            removed += 1;
+        }
+    }
+
+    Ok(removed)
 }
 
 pub fn restore_snapshot(snapshot: &BackupSnapshot) -> Result<()> {

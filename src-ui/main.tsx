@@ -195,6 +195,22 @@ function App() {
     }
   }
 
+  async function pruneBackups() {
+    const confirmed = window.confirm('确定清理旧备份吗？会保留最近 24 个自动同步备份、10 个手动备份、10 个恢复前备份。');
+    if (!confirmed) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const removed = await invoke<number>('prune_backups');
+      await refresh();
+      setError(`已清理 ${removed} 个旧备份。`);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function restoreBackup(snapshot: BackupSnapshot) {
     const confirmed = window.confirm(`确定恢复到备份 ${snapshot.id} 吗？这会覆盖当前 Codex 会话目录。`);
     if (!confirmed) return;
@@ -311,7 +327,7 @@ function App() {
             <Metric icon={<History size={18} />} label="上次同步" value={formatDateTime(report.last_run_at)} />
           </section>
           <SyncConfig settings={settings} intervalDraft={intervalDraft} setIntervalDraft={setIntervalDraft} saveInterval={saveInterval} busy={busy} />
-          <BackupPanel snapshots={snapshots} busy={busy} createBackup={createBackup} restoreBackup={restoreBackup} openBackupDir={openBackupDir} />
+          <BackupPanel snapshots={snapshots} busy={busy} createBackup={createBackup} pruneBackups={pruneBackups} restoreBackup={restoreBackup} openBackupDir={openBackupDir} />
         </>
       )}
 
@@ -332,6 +348,10 @@ function App() {
               <button className="large-button" onClick={openBackupDir}>
                 <History size={17} />
                 打开备份目录
+              </button>
+              <button className="large-button" onClick={pruneBackups} disabled={busy}>
+                <RotateCcw size={17} />
+                清理旧备份
               </button>
               <button className="large-button" onClick={openLog}>
                 <TerminalSquare size={17} />
@@ -434,12 +454,14 @@ function BackupPanel({
   snapshots,
   busy,
   createBackup,
+  pruneBackups,
   restoreBackup,
   openBackupDir,
 }: {
   snapshots: BackupSnapshot[];
   busy: boolean;
   createBackup: () => void;
+  pruneBackups: () => void;
   restoreBackup: (snapshot: BackupSnapshot) => void;
   openBackupDir: () => void;
 }) {
@@ -453,6 +475,9 @@ function BackupPanel({
         <div className="flex gap-2">
           <button className="rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-blue-600" onClick={openBackupDir}>
             打开目录
+          </button>
+          <button className="rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-blue-600" onClick={pruneBackups} disabled={busy}>
+            清理旧备份
           </button>
           <button className="rounded-xl bg-slate-50 px-4 py-2 text-sm font-medium text-blue-600" onClick={createBackup} disabled={busy}>
             创建备份

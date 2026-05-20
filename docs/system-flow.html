@@ -533,9 +533,10 @@
           <div class="card ok">
             <h3>备份什么时候发生</h3>
             <ul>
-              <li>每次自动同步前自动创建 <code>before-sync</code> 快照。</li>
+              <li>自动同步发现会话或索引需要写入时，才创建 <code>before-sync</code> 快照。</li>
               <li>手动点击备份时创建 <code>manual</code> 快照。</li>
               <li>执行恢复前先创建 <code>before-restore</code> 回退快照。</li>
+              <li>默认保留最近 24 个自动备份、10 个手动备份、10 个恢复前备份。</li>
             </ul>
           </div>
           <div class="card warning">

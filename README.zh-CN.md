@@ -28,6 +28,7 @@ Codex Provider Session Sync 是一个 Tauri 桌面应用，用来把 Codex Deskt
 - 主窗口：类似 CC Switch 的白底卡片式 UI，但展示同步状态、Provider、同步间隔、开机自启和日志操作。
 - Windows 开机自启：主窗口右上角设置按钮可写入或移除 HKCU Run 启动项。
 - 备份与恢复：每次同步前自动创建快照，主窗口可手动创建备份并恢复到指定快照。
+- 备份清理：自动同步只有发现会话或索引需要写入时才创建备份；旧快照按保留策略自动清理。
 
 ## 项目结构
 
@@ -133,6 +134,12 @@ C:\Users\<用户名>\Desktop\codex-provider-session-sync-backup\snapshots\<时�
 - `archived_sessions`
 - `session_index.jsonl`
 - `provider-session-sync.json`
+
+默认保留策略：
+
+- 自动同步前备份 `before-sync`：保留最近 24 个
+- 手动备份 `manual`：保留最近 10 个
+- 恢复前回退备份 `before-restore`：保留最近 10 个
 
 恢复快照会覆盖当前 `.codex` 下对应文件和目录。执行恢复前建议关闭 Codex Desktop，避免应用同时写入会话文件。
 

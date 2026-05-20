@@ -2,7 +2,7 @@ mod backup;
 mod settings;
 mod sync;
 
-use backup::{create_snapshot, list_snapshots, restore_snapshot, BackupSnapshot};
+use backup::{create_snapshot, list_snapshots, prune_snapshots, restore_snapshot, BackupSnapshot};
 use settings::{
     default_backup_dir, load_settings, save_settings, update_enabled, update_interval, SyncSettings,
 };
@@ -27,6 +27,7 @@ use tauri::{
 use winreg::{enums::HKEY_CURRENT_USER, RegKey};
 
 const RUN_KEY_NAME: &str = "CodexProviderSessionSync";
+const BACKUP_RETENTION: &[(&str, usize)] = &[("before-sync", 24), ("manual", 10), ("before-restore", 10)];
 
 #[derive(Clone, Default)]
 struct AppState {
@@ -58,8 +59,15 @@ fn run_sync_cycle(state: &AppState) -> Result<SyncReport, String> {
     let settings = load_settings();
     let backup_dir = default_backup_dir();
     fs::create_dir_all(&backup_dir).map_err(|err| err.to_string())?;
+    let dry_report = sync_all(&settings.codex_home, &backup_dir, &settings.providers, false).map_err(|err| err.to_string())?;
+    if !report_has_changes(&dry_report) {
+        append_log(&settings, "sync ok: no changes");
+        *state.last_report.lock().map_err(|err| err.to_string())? = Some(dry_report.clone());
+        return Ok(dry_report);
+    }
     let snapshot = create_snapshot(&settings.codex_home, &backup_dir, "before-sync")
         .map_err(|err| err.to_string())?;
+    let pruned = prune_snapshots(&backup_dir, BACKUP_RETENTION).map_err(|err| err.to_string())?;
     match sync_all(&settings.codex_home, &backup_dir, &settings.providers, true) {
         Ok(mut report) => {
             report.backup_snapshot_id = Some(snapshot.id.clone());
@@ -67,11 +75,12 @@ fn run_sync_cycle(state: &AppState) -> Result<SyncReport, String> {
             append_log(
                 &settings,
                 &format!(
-                    "sync ok: refreshed={} created={} conflicts={} backup={}",
+                    "sync ok: refreshed={} created={} conflicts={} backup={} pruned={}",
                     report.mirror_refreshed,
                     report.mirror_created,
                     report.mirror_conflicts,
-                    snapshot.id
+                    snapshot.id,
+                    pruned
                 ),
             );
             *state.last_report.lock().map_err(|err| err.to_string())? = Some(report.clone());
@@ -93,6 +102,10 @@ fn run_sync_cycle(state: &AppState) -> Result<SyncReport, String> {
             Err(err.to_string())
         }
     }
+}
+
+fn report_has_changes(report: &SyncReport) -> bool {
+    report.mirror_needed > 0 || report.mirror_stale > 0 || report.index_needed > 0 || report.index_stale > 0
 }
 
 fn start_background(app: AppHandle) {
@@ -251,7 +264,8 @@ fn create_backup_now(state: State<'_, AppState>) -> Result<BackupSnapshot, Strin
     let settings = load_settings();
     let snapshot = create_snapshot(&settings.codex_home, &default_backup_dir(), "manual")
         .map_err(|err| err.to_string())?;
-    append_log(&settings, &format!("backup created: {}", snapshot.id));
+    let pruned = prune_snapshots(&default_backup_dir(), BACKUP_RETENTION).map_err(|err| err.to_string())?;
+    append_log(&settings, &format!("backup created: {} pruned={}", snapshot.id, pruned));
     Ok(snapshot)
 }
 
@@ -270,10 +284,11 @@ fn restore_backup(state: State<'_, AppState>, snapshot_id: String) -> Result<(),
         "before-restore",
     )
     .map_err(|err| err.to_string())?;
+    let pruned = prune_snapshots(&default_backup_dir(), BACKUP_RETENTION).map_err(|err| err.to_string())?;
     restore_snapshot(&snapshot).map_err(|err| err.to_string())?;
     append_log(
         &settings,
-        &format!("backup restored: {} rollback={}", snapshot.id, rollback.id),
+        &format!("backup restored: {} rollback={} pruned={}", snapshot.id, rollback.id, pruned),
     );
     Ok(())
 }
@@ -318,6 +333,15 @@ fn open_backup_dir() -> Result<(), String> {
 }
 
 #[tauri::command]
+fn prune_backups(state: State<'_, AppState>) -> Result<usize, String> {
+    let _operation_guard = state.operation_lock.lock().map_err(|err| err.to_string())?;
+    let settings = load_settings();
+    let removed = prune_snapshots(&default_backup_dir(), BACKUP_RETENTION).map_err(|err| err.to_string())?;
+    append_log(&settings, &format!("backup pruned: removed={removed}"));
+    Ok(removed)
+}
+
+#[tauri::command]
 fn exit_app(app: AppHandle) {
     app.exit(0);
 }
@@ -339,6 +363,7 @@ pub fn run() {
             open_log,
             get_log_tail,
             open_backup_dir,
+            prune_backups,
             exit_app
         ])
         .setup(|app| {
