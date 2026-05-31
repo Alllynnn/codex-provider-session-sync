@@ -3,6 +3,7 @@ name = "codex-provider-session-sync"
 version = "0.2.0"
 description = "Codex Desktop provider session aggregator"
 authors = ["Alllynnn"]
+license = "MIT"
 edition = "2021"
 
 [lib]

@@ -30,6 +30,66 @@ Codex Provider Session Sync 是一个 Tauri 桌面应用，用来把 Codex Deskt
 - 备份与恢复：每次同步前自动创建快照，主窗口可手动创建备份并恢复到指定快照。
 - 备份清理：自动同步只有发现会话或索引需要写入时才创建备份；旧快照按保留策略自动清理。
 
+## 安装方式
+
+### 方式一：下载 Release 安装包
+
+1. 打开 GitHub Releases：<https://github.com/Alllynnn/codex-provider-session-sync/releases>
+2. 下载最新版本的 Windows 安装包或可执行文件。
+3. 启动 `Codex Provider Session Sync`。
+4. 在设置页确认 provider 列表和同步间隔。
+5. 需要开机自启时，打开右上角设置开关。
+
+如果还没有发布 Release，可以先使用下面的源码构建方式。
+
+### 方式二：从源码构建
+
+环境要求：
+
+- Node.js
+- pnpm
+- Rust toolchain，包括 `cargo` 和 `rustc`
+
+构建命令：
+
+```powershell
+git clone https://github.com/Alllynnn/codex-provider-session-sync.git
+cd codex-provider-session-sync
+pnpm install
+pnpm build
+pnpm exec tauri build --no-bundle
+```
+
+构建完成后，可执行文件通常位于：
+
+```text
+src-tauri\target\release\codex-provider-session-sync.exe
+```
+
+如果需要生成安装包，可以运行：
+
+```powershell
+pnpm tauri:build
+```
+
+注意：完整打包依赖 Tauri 当前平台的打包工具链，Windows 上可能需要额外安装 WebView2 / WiX 等组件。
+
+## 使用说明
+
+1. 先关闭正在写入会话的 Codex Desktop，避免首次聚合时和 Codex 同时写文件。
+2. 启动本工具，进入设置页确认 `Codex Home` 是否指向 `C:\Users\<用户名>\.codex`。
+3. 在 Provider 页确认源 provider 和目标 provider，例如 `openai`、`openrouter`、`custom`。
+4. 打开同步开关，或通过托盘右键菜单启用同步。
+5. 工具会按间隔扫描会话文件，把同一组对话镜像到其它 provider 下。
+6. 双击任务栏托盘图标可以打开主窗口；右键菜单可关闭同步、设置同步间隔或退出程序。
+7. 如果同步结果异常，进入设置页选择备份快照恢复。恢复前建议关闭 Codex Desktop。
+
+常用路径：
+
+- 配置：`C:\Users\<用户名>\.codex\provider-session-sync.json`
+- 日志：`C:\Users\<用户名>\.codex\log\provider-sync-daemon.log`
+- 备份：`C:\Users\<用户名>\Desktop\codex-provider-session-sync-backup`
+
 ## 项目结构
 
 ```text
@@ -149,3 +209,15 @@ C:\Users\<用户名>\Desktop\codex-provider-session-sync-backup\snapshots\<时�
 - 工具只刷新自己能识别的镜像文件；遇到冲突会跳过。
 - 恢复备份会覆盖当前会话数据，执行前确认目标快照时间点正确。
 - 如果 Codex Desktop 后续更改会话 JSONL 或 `session_index.jsonl` 格式，需要重新验证同步逻辑。
+
+## 维护计划
+
+- 保持对 Codex Desktop 当前会话 JSONL 和 `session_index.jsonl` 格式的兼容。
+- 继续优化备份策略，后续可加入按总容量或时间范围清理。
+- 增加更多同步报告字段，让“会话组”“同步副本”“刷新镜像”的含义更直观。
+- 补充同步核心逻辑的自动化测试，覆盖镜像刷新、冲突跳过、备份清理和恢复前备份。
+- 发布 GitHub Release，提供可直接下载的 Windows 安装包或便携版 exe。
+
+## License
+
+[MIT](LICENSE)

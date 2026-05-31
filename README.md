@@ -26,6 +26,67 @@ The old Python / PyInstaller implementation has been removed. The sync engine no
 - Main window: CC Switch-style white card UI adapted for sync status, providers, interval, autostart, and log actions.
 - Windows autostart: the top-right settings button writes or removes the HKCU Run entry.
 - Backup and restore: every sync creates a pre-sync snapshot; the main window can create manual backups and restore a selected snapshot.
+- Backup pruning: automatic sync creates a snapshot only when changes are needed, then prunes older snapshots by category.
+
+## Installation
+
+### Option 1: Download a Release
+
+1. Open GitHub Releases: <https://github.com/Alllynnn/codex-provider-session-sync/releases>
+2. Download the latest Windows installer or executable.
+3. Start `Codex Provider Session Sync`.
+4. Check providers and sync interval in Settings.
+5. Enable autostart if you want the sync loop to start with Windows.
+
+If no release has been published yet, build from source.
+
+### Option 2: Build From Source
+
+Requirements:
+
+- Node.js
+- pnpm
+- Rust toolchain with `cargo` and `rustc`
+
+Build:
+
+```powershell
+git clone https://github.com/Alllynnn/codex-provider-session-sync.git
+cd codex-provider-session-sync
+pnpm install
+pnpm build
+pnpm exec tauri build --no-bundle
+```
+
+The executable is usually written to:
+
+```text
+src-tauri\target\release\codex-provider-session-sync.exe
+```
+
+To build full installers, run:
+
+```powershell
+pnpm tauri:build
+```
+
+Full bundling depends on the current Tauri platform toolchain. On Windows, extra WebView2 / WiX components may be required.
+
+## Usage
+
+1. Close Codex Desktop before first sync if it is actively writing session files.
+2. Start this app and confirm `Codex Home` points to `C:\Users\<user>\.codex`.
+3. Open the Provider tab and confirm source and target providers, such as `openai`, `openrouter`, and `custom`.
+4. Enable sync from the main window or the tray menu.
+5. The app periodically scans session files and mirrors each conversation group across providers.
+6. Double-click the tray icon to open the main window. Right-click it to enable/disable sync, change interval, or exit.
+7. If sync output looks wrong, restore a known-good backup snapshot from Settings. Close Codex Desktop before restoring.
+
+Useful paths:
+
+- Settings: `C:\Users\<user>\.codex\provider-session-sync.json`
+- Log: `C:\Users\<user>\.codex\log\provider-sync-daemon.log`
+- Backup root: `C:\Users\<user>\Desktop\codex-provider-session-sync-backup`
 
 ## Project Structure
 
@@ -136,3 +197,15 @@ Restoring a snapshot overwrites the matching files and directories in `.codex`. 
 - The tool only refreshes mirrors it can identify and skips conflicts.
 - Restoring a backup overwrites current session data. Check the snapshot timestamp before restoring.
 - If Codex Desktop changes its JSONL or `session_index.jsonl` format, re-check the sync logic before applying writes.
+
+## Maintenance Plan
+
+- Keep compatibility with the current Codex Desktop session JSONL and `session_index.jsonl` formats.
+- Improve backup retention with optional size and age limits.
+- Make dashboard metrics clearer, especially session groups, mirror copies, and refreshed mirrors.
+- Add automated tests for mirror refresh, conflict skipping, backup pruning, and pre-restore snapshots.
+- Publish GitHub Releases with a Windows installer or portable exe.
+
+## License
+
+[MIT](LICENSE)
